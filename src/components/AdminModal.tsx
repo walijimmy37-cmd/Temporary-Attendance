@@ -18,7 +18,13 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { APPS_SCRIPT_SOURCE } from '../data/appsScriptCode';
-import { getApiUrl, saveCustomApiUrl, testApiEndpoint, isValidGoogleAppsScriptUrl } from '../services/attendanceApi';
+import {
+  getApiUrl,
+  saveCustomApiUrl,
+  testApiEndpoint,
+  isValidGoogleAppsScriptUrl,
+  sendDiagnosticTestCheckIn
+} from '../services/attendanceApi';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -120,6 +126,27 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     } catch (err: any) {
       setTestStatus('error');
       setTestMessage(`Diagnostic failure: ${err.message || 'Network error'}`);
+    }
+  };
+
+  const handleSendTestCheckIn = async () => {
+    setTestStatus('testing');
+    setTestMessage('Sending real test check-in for "FRONTEND TEST USER"...');
+
+    try {
+      const result = await sendDiagnosticTestCheckIn();
+      if (result.success) {
+        setTestStatus('success');
+        setTestMessage(
+          `Success: "${result.data?.name || 'FRONTEND TEST USER'}" logged (ID: ${result.data?.id || 'OK'}). Check your Google Sheet now!`
+        );
+      } else {
+        setTestStatus('error');
+        setTestMessage(result.message || 'Failed to send test check-in.');
+      }
+    } catch (err: any) {
+      setTestStatus('error');
+      setTestMessage(`Diagnostic test error: ${err.message || 'Network error'}`);
     }
   };
 
@@ -572,7 +599,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button
                   id="save-settings-btn"
                   type="button"
@@ -594,6 +621,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
                   )}
                   <span>Test Endpoint</span>
+                </button>
+                <button
+                  id="send-test-checkin-btn"
+                  type="button"
+                  onClick={handleSendTestCheckIn}
+                  disabled={testStatus === 'testing'}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Sends a real check-in for 'FRONTEND TEST USER' to the Google Sheet"
+                >
+                  {testStatus === 'testing' ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>Send Test Check-In</span>
                 </button>
               </div>
             </div>

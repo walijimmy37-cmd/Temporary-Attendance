@@ -204,19 +204,15 @@ export async function testApiEndpoint(urlToTest?: string): Promise<{ success: bo
     };
   }
 
-  console.log('[Attendance API Test] Testing endpoint:', targetUrl);
+  console.log('[Attendance API Test] Testing endpoint (GET):', targetUrl);
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     const response = await fetch(targetUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json, text/plain, */*'
-      },
-      signal: controller.signal,
-      redirect: 'follow'
+      signal: controller.signal
     });
 
     clearTimeout(timeoutId);
@@ -224,11 +220,10 @@ export async function testApiEndpoint(urlToTest?: string): Promise<{ success: bo
     console.log('[Attendance API Test] HTTP response status:', response.status);
 
     const text = await response.text();
-    console.log('[Attendance API Test] Response body:', text.slice(0, 300));
+    console.log('[Attendance API Test] Response body:', text);
 
     const htmlError = extractGoogleScriptHtmlError(text);
     if (htmlError) {
-      console.warn('[Attendance API Test] Apps Script error detected:', htmlError);
       return {
         success: false,
         message: `Google Apps Script returned error: ${htmlError}`
@@ -259,44 +254,28 @@ export async function testApiEndpoint(urlToTest?: string): Promise<{ success: bo
         };
       }
     } catch (parseErr) {
-      if (response.ok) {
-        return {
-          success: true,
-          message: 'Attendance API connected successfully.'
-        };
-      }
       return {
         success: false,
-        message: `Received unexpected response (Status ${response.status}).`
+        message: `Received unexpected non-JSON response (Status ${response.status}).`
       };
     }
   } catch (err: any) {
-    console.warn('[Attendance API Test] Connection note:', err?.message || err);
+    console.error('[Attendance API Test] Connection error:', err);
     if (err.name === 'AbortError') {
       return {
         success: false,
         message: 'Connection timed out. Please check your internet connection.'
       };
     }
-
-    // Try a no-cors reachability test in case of browser CORS restriction
-    try {
-      await fetch(targetUrl, { method: 'GET', mode: 'no-cors' });
-      return {
-        success: true,
-        message: 'Attendance API endpoint is reachable and active.'
-      };
-    } catch (pingErr) {
-      return {
-        success: false,
-        message: `Failed to connect: ${err.message || 'Network error'}`
-      };
-    }
+    return {
+      success: false,
+      message: `Failed to connect: ${err.message || 'Network error'}`
+    };
   }
 }
 
 /**
- * Submits attendance check-in to Google Apps Script.
+ * Submits attendance check-in to Google Apps Script using standard form-urlencoded POST.
  */
 export async function submitCheckIn(request: CheckInRequest): Promise<CheckInResponse> {
   const normalizedName = normalizeName(request.name);
@@ -307,7 +286,7 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
     };
   }
 
-  // 1. Client-side rapid duplicate check
+  // 1. Client-side rapid duplicate check (within 2 minutes)
   if (checkClientDuplicate(normalizedName)) {
     return {
       success: false,
@@ -319,33 +298,23 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
   const apiUrl = getApiUrl();
   console.log('[Attendance API] Resolved API URL:', apiUrl);
 
-  const now = new Date();
-  const { timestamp, dateStr, timeStr, dateCompact } = formatDateTime(now);
-  const payload = {
-    name: normalizedName,
-    checkInType: request.checkInType || 'Check-In',
-    source: request.source || 'Reception QR'
-  };
+  // 2. Build form-urlencoded payload via URLSearchParams
+  const body = new URLSearchParams();
+  body.append('name', normalizedName);
+  body.append('checkInType', request.checkInType || 'Check-In');
+  body.append('source', request.source || 'Reception QR');
 
-  console.log('[Attendance API] Sending request payload:', payload);
+  console.log('[Attendance API] Sending form-urlencoded POST request:', body.toString());
 
-  const randomSeq = Math.floor(1000 + Math.random() * 9000);
-  const generatedId = `ATT-${dateCompact}-${randomSeq}`;
-
-  // 2. Send request to Google Apps Script Web App
+  // 3. Send standard POST request without no-cors mode, waiting for backend response
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-    // Simple POST request with text/plain to avoid CORS preflight options issues
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-      redirect: 'follow'
+      body: body,
+      signal: controller.signal
     });
 
     clearTimeout(timeoutId);
@@ -358,20 +327,10 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
     // Check if Google Apps Script returned an HTML error
     const htmlError = extractGoogleScriptHtmlError(responseText);
     if (htmlError) {
-      console.warn('[Attendance API] Google Apps Script notice:', htmlError);
-      recordClientSubmission(normalizedName);
+      console.error('[Attendance API] Google Apps Script HTML error:', htmlError);
       return {
-        success: true,
-        message: 'Check-in recorded successfully. Thank you!',
-        data: {
-          id: generatedId,
-          name: normalizedName,
-          timestamp,
-          date: dateStr,
-          time: timeStr,
-          checkInType: payload.checkInType,
-          source: payload.source
-        }
+        success: false,
+        message: `Google Sheets Script error: ${htmlError}`
       };
     }
 
@@ -380,102 +339,109 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
       jsonResult = JSON.parse(responseText);
       console.log('[Attendance API] Parsed JSON:', jsonResult);
     } catch (parseError) {
-      console.log('[Attendance API] Standard response parsed as text');
-      recordClientSubmission(normalizedName);
+      console.error('[Attendance API] Invalid JSON received from backend:', responseText);
       return {
-        success: true,
-        message: 'Check-in recorded successfully. Thank you!',
-        data: {
-          id: generatedId,
-          name: normalizedName,
-          timestamp,
-          date: dateStr,
-          time: timeStr,
-          checkInType: payload.checkInType,
-          source: payload.source
-        }
+        success: false,
+        message: "We couldn't confirm your check-in. Please try again."
       };
     }
 
-    if (jsonResult.success) {
+    // Check backend confirmation
+    if (jsonResult && jsonResult.success === true) {
       recordClientSubmission(normalizedName);
-      if (!jsonResult.data) {
-        jsonResult.data = {
-          id: generatedId,
-          name: normalizedName,
-          timestamp,
-          date: dateStr,
-          time: timeStr,
-          checkInType: payload.checkInType,
-          source: payload.source
-        };
-      }
       return {
         success: true,
         message: jsonResult.message || 'Check-in recorded successfully. Thank you!',
         data: jsonResult.data
       };
-    } else {
-      // Backend returned an explicit duplicate warning or error
-      if (jsonResult.isDuplicate) {
-        return {
-          success: false,
-          isDuplicate: true,
-          message: jsonResult.message || 'You have already checked in recently.'
-        };
-      }
+    } else if (jsonResult && jsonResult.success === false) {
       return {
         success: false,
-        message: jsonResult.message || 'Unable to record check-in. Please try again.'
+        isDuplicate: Boolean(jsonResult.isDuplicate),
+        message: jsonResult.message || "We couldn't confirm your check-in. Please try again."
+      };
+    } else {
+      return {
+        success: false,
+        message: "We couldn't confirm your check-in. Please try again."
       };
     }
   } catch (err: any) {
-    console.log('[Attendance API] Handling fetch delivery with fallback:', err?.message || err);
-
+    console.error('[Attendance API] Submission error:', err);
     if (err.name === 'AbortError') {
       return {
         success: false,
-        message: 'Request timed out. Please verify your internet connection and try again.'
+        message: 'Request timed out. Please check your network and try again.'
       };
     }
+    return {
+      success: false,
+      message: "We couldn't confirm your check-in. Please try again."
+    };
+  }
+}
 
-    // Trigger fallback transmission via mode: 'no-cors' so browser sends POST payload
-    try {
-      if (typeof fetch !== 'undefined' && apiUrl) {
-        fetch(apiUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      }
-    } catch (e) {
-      // Ignore background error
-    }
+/**
+ * Diagnostic test check-in that sends real POST to Google Apps Script for 'FRONTEND TEST USER'.
+ */
+export async function sendDiagnosticTestCheckIn(): Promise<CheckInResponse> {
+  const apiUrl = getApiUrl();
+  console.log('[Attendance API Diagnostic] Sending real test check-in to:', apiUrl);
 
-    // Check if user is offline
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  const body = new URLSearchParams();
+  body.append('name', 'FRONTEND TEST USER');
+  body.append('checkInType', 'Check-In');
+  body.append('source', 'Frontend Test');
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: body,
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    const responseText = await response.text();
+    console.log('[Attendance API Diagnostic] Response:', responseText);
+
+    const htmlError = extractGoogleScriptHtmlError(responseText);
+    if (htmlError) {
       return {
         success: false,
-        message: 'You appear to be offline. Please check your network and try again.'
+        message: `Google Sheets Script error: ${htmlError}`
       };
     }
 
-    // Record submission and display confirmed check-in
-    recordClientSubmission(normalizedName);
-
-    return {
-      success: true,
-      message: 'Check-in recorded successfully. Thank you!',
-      data: {
-        id: generatedId,
-        name: normalizedName,
-        timestamp,
-        date: dateStr,
-        time: timeStr,
-        checkInType: payload.checkInType,
-        source: payload.source
+    try {
+      const jsonResult = JSON.parse(responseText);
+      if (jsonResult && jsonResult.success === true) {
+        return {
+          success: true,
+          message: 'Frontend test check-in recorded in Google Sheet successfully!',
+          data: jsonResult.data
+        };
+      } else {
+        return {
+          success: false,
+          isDuplicate: Boolean(jsonResult?.isDuplicate),
+          message: jsonResult?.message || "Test submission failed."
+        };
       }
+    } catch {
+      return {
+        success: false,
+        message: `Backend returned non-JSON response: ${responseText.slice(0, 100)}`
+      };
+    }
+  } catch (err: any) {
+    console.error('[Attendance API Diagnostic] Test error:', err);
+    return {
+      success: false,
+      message: `Failed to send diagnostic test: ${err.message || 'Network error'}`
     };
   }
 }

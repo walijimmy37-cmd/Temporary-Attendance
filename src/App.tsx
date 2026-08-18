@@ -70,10 +70,10 @@ export default function App() {
       if (response.success && response.data) {
         setSuccessData(response.data);
       } else {
-        setErrorMessage(response.message || 'Something went wrong while recording your attendance. Please try again.');
+        setErrorMessage(response.message || "We couldn't confirm your check-in. Please try again.");
       }
     } catch (err: any) {
-      setErrorMessage('Something went wrong while recording your attendance. Please try again.');
+      setErrorMessage("We couldn't confirm your check-in. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

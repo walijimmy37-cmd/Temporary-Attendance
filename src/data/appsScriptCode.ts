@@ -16,9 +16,7 @@ var DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
 function doGet(e) {
   var result = {
     status: "ok",
-    service: "Attendance Check-In API",
-    timestamp: new Date().toISOString(),
-    message: "Google Apps Script endpoint is live and ready."
+    service: "Attendance Check-In API"
   };
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
@@ -36,25 +34,45 @@ function doPost(e) {
   }
 
   try {
-    var data = {};
-    if (e && e.postData && e.postData.contents) {
-      try {
-        data = JSON.parse(e.postData.contents);
-      } catch (err) {
-        if (e.parameter) {
-          data = e.parameter;
-        } else {
-          return createJsonResponse({ success: false, message: "Invalid JSON format." });
-        }
-      }
-    } else if (e && e.parameter) {
-      data = e.parameter;
+    Logger.log("--- New Check-In Request ---");
+    Logger.log("Received parameters: " + (e && e.parameter ? JSON.stringify(e.parameter) : "none"));
+
+    // 1. Read parameters primarily from e.parameter (standard form-urlencoded)
+    var rawName = "";
+    var checkInType = "Check-In";
+    var source = "Reception QR";
+
+    if (e && e.parameter) {
+      rawName = e.parameter.name || "";
+      checkInType = e.parameter.checkInType || "Check-In";
+      source = e.parameter.source || "Reception QR";
     }
 
-    var rawName = data.name || "";
-    var checkInType = data.checkInType || "Check-In";
-    var source = data.source || "Reception QR";
+    // Fallback: Check postData if form-urlencoded or JSON was posted in body
+    if (!rawName && e && e.postData && e.postData.contents) {
+      try {
+        var parsed = JSON.parse(e.postData.contents);
+        rawName = parsed.name || "";
+        checkInType = parsed.checkInType || checkInType;
+        source = parsed.source || source;
+      } catch (jsonErr) {
+        // Not JSON - check if form-encoded string
+        var qs = e.postData.contents;
+        var pairs = qs.split("&");
+        for (var i = 0; i < pairs.length; i++) {
+          var pair = pairs[i].split("=");
+          var key = decodeURIComponent(pair[0] || "");
+          var val = decodeURIComponent((pair[1] || "").replace(/\\+/g, " "));
+          if (key === "name") rawName = val;
+          if (key === "checkInType") checkInType = val;
+          if (key === "source") source = val;
+        }
+      }
+    }
 
+    Logger.log("Received name: " + rawName);
+
+    // 2. Validate name
     var normalizedName = normalizeNameScript(rawName);
     if (!normalizedName || normalizedName.length === 0) {
       return createJsonResponse({
@@ -70,14 +88,14 @@ function doPost(e) {
       });
     }
 
-    var sheet = getOrCreateSheet();
-    if (!sheet) {
-      return createJsonResponse({
-        success: false,
-        message: "Unable to access Attendance sheet."
-      });
-    }
+    // 3. Get or create worksheet in Google Sheet
+    var ss = getSpreadsheet();
+    Logger.log("Spreadsheet: " + ss.getName());
+    var sheet = getOrCreateSheet(ss);
+    Logger.log("Sheet: " + sheet.getName());
+    Logger.log("Row number before append: " + sheet.getLastRow());
 
+    // 4. Generate timestamp, date, time
     var now = new Date();
     var timeZone = Session.getScriptTimeZone() || "GMT";
     var timestampStr = Utilities.formatDate(now, timeZone, "yyyy-MM-dd HH:mm:ss");
@@ -85,8 +103,9 @@ function doPost(e) {
     var timeStr = Utilities.formatDate(now, timeZone, "HH:mm");
     var dateCompact = Utilities.formatDate(now, timeZone, "yyyyMMdd");
 
-    // Check recent duplicate within 2 minutes
+    // 5. Check recent duplicate within 2 minutes
     if (isDuplicateCheckIn(sheet, normalizedName, dateStr, now.getTime())) {
+      Logger.log("Duplicate check-in detected for: " + normalizedName);
       return createJsonResponse({
         success: false,
         isDuplicate: true,
@@ -94,12 +113,14 @@ function doPost(e) {
       });
     }
 
-    // Unique Entry ID
+    // 6. Generate unique attendance ID
     var totalRows = sheet.getLastRow();
     var randomSuffix = ("000" + Math.floor(Math.random() * 1000)).slice(-3);
     var entryId = "ATT-" + dateCompact + "-" + ("00" + Math.max(1, totalRows)).slice(-3) + randomSuffix.charAt(0);
+    Logger.log("Generated entry ID: " + entryId);
 
-    // Append row
+    // 7. Append the row (Timestamp, Date, Time, Name, Check-In Type, Source, Unique Entry ID)
+    Logger.log("Writing attendance row");
     sheet.appendRow([
       timestampStr,
       dateStr,
@@ -109,8 +130,9 @@ function doPost(e) {
       source,
       entryId
     ]);
+    Logger.log("Attendance row written successfully");
 
-    return createJsonResponse({
+    var responseData = {
       success: true,
       message: "Check-in recorded successfully. Thank you!",
       data: {
@@ -122,9 +144,13 @@ function doPost(e) {
         checkInType: checkInType,
         source: source
       }
-    });
+    };
+
+    Logger.log("Returned response: " + JSON.stringify(responseData));
+    return createJsonResponse(responseData);
 
   } catch (error) {
+    Logger.log("Error in doPost: " + error.toString());
     return createJsonResponse({
       success: false,
       message: "Unable to record check-in: " + error.toString()
@@ -195,7 +221,7 @@ function isDuplicateCheckIn(sheet, normalizedName, dateStr, currentTimestampMs) 
   return false;
 }
 
-function getOrCreateSheet() {
+function getSpreadsheet() {
   var ss;
   if (SHEET_ID && SHEET_ID.trim() !== "") {
     ss = SpreadsheetApp.openById(SHEET_ID.trim());
@@ -206,9 +232,12 @@ function getOrCreateSheet() {
   }
 
   if (!ss) {
-    throw new Error("Cannot open Spreadsheet.");
+    throw new Error("Cannot open Spreadsheet. Please verify SHEET_ID or script is attached to a Google Sheet.");
   }
+  return ss;
+}
 
+function getOrCreateSheet(ss) {
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
