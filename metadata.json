@@ -1,6 +1,6 @@
 {
-  "name": "Attendance Check-In",
-  "description": "A clean, mobile-friendly temporary attendance check-in system for office reception desks connected with Google Sheets.",
+  "name": "Coventra Attendance",
+  "description": "Clean, mobile-friendly attendance check-in system for the Coventra reception desk.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

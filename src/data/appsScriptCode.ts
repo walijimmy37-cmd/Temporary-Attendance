@@ -1,6 +1,6 @@
 export const APPS_SCRIPT_SOURCE = `/**
  * =========================================================================
- * TEMPORARY ATTENDANCE CHECK-IN SYSTEM - GOOGLE APPS SCRIPT BACKEND
+ * COVENTRA ATTENDANCE CHECK-IN SYSTEM - GOOGLE APPS SCRIPT BACKEND
  * =========================================================================
  */
 

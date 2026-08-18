@@ -555,7 +555,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   type="text"
                   value={tempCompanyName}
                   onChange={(e) => setTempCompanyName(e.target.value)}
-                  placeholder="e.g. Nexus Corp Reception"
+                  placeholder="e.g. Coventra Reception"
                   className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-indigo-600 focus:outline-none"
                 />
               </div>
@@ -644,7 +644,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
         {/* Modal Footer */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
-          <span>Temporary Attendance System v1.0</span>
+          <span>Coventra Attendance System v1.0</span>
           <button
             id="modal-done-btn"
             type="button"

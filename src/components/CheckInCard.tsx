@@ -1,25 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Loader2, AlertCircle, ArrowRight, X, Building2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { User, Loader2, AlertCircle, ArrowRight, X } from 'lucide-react';
 import { validateName } from '../utils/nameFormatter';
 
 interface CheckInCardProps {
-  companyName: string;
   isSubmitting: boolean;
   errorMessage: string | null;
   onSubmit: (name: string, checkInType: string) => Promise<void>;
   onClearError: () => void;
-  isApiConfigured: boolean;
-  onOpenAdmin: () => void;
 }
 
 export const CheckInCard: React.FC<CheckInCardProps> = ({
-  companyName,
   isSubmitting,
   errorMessage,
   onSubmit,
   onClearError,
-  isApiConfigured,
-  onOpenAdmin,
 }) => {
   const [name, setName] = useState('');
   const [checkInType, setCheckInType] = useState('Check-In');
@@ -62,46 +56,27 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
 
   return (
     <div id="check-in-container" className="w-full max-w-md mx-auto">
-      {/* Configuration notice if running in demo mode */}
-      {!isApiConfigured && (
-        <div id="demo-mode-banner" className="mb-4 bg-indigo-50/70 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-900 flex items-start gap-2.5 shadow-xs">
-          <div className="p-1 bg-indigo-100/80 rounded-lg text-indigo-700 mt-0.5">
-            <AlertCircle className="w-3.5 h-3.5" />
-          </div>
-          <div className="flex-1">
-            <span className="font-semibold block text-indigo-950">Demo Simulation Mode</span>
-            Submissions are saved locally. Connect your Google Apps Script URL in{' '}
-            <button
-              id="open-admin-from-banner"
-              type="button"
-              onClick={onOpenAdmin}
-              className="font-semibold underline hover:text-indigo-950 transition-colors cursor-pointer"
-            >
-              Setup & Settings
-            </button>
-            .
-          </div>
-        </div>
-      )}
-
       {/* Main Check-In Card */}
-      <div id="check-in-card" className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden transition-all duration-200">
+      <div
+        id="check-in-card"
+        className="bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-100 overflow-hidden transition-all duration-200"
+      >
         {/* Card Header */}
         <div className="text-center p-6 sm:p-8 border-b border-slate-100">
-          <div className="inline-block px-3 py-1 bg-indigo-50 border border-indigo-100/80 text-indigo-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
-            {companyName}
+          <div className="inline-block px-3.5 py-1 bg-indigo-50 border border-indigo-100/80 text-indigo-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
+            Coventra Attendance
           </div>
           <h1 id="attendance-title" className="text-2xl font-bold text-slate-900 tracking-tight">
             Attendance Check-In
           </h1>
-          <p id="attendance-instruction" className="text-slate-500 text-sm mt-1">
+          <p id="attendance-instruction" className="text-slate-500 text-sm mt-1.5 leading-relaxed">
             Please enter your name to record your attendance.
           </p>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5" noValidate>
-          {/* Error Message Box */}
+          {/* Friendly Error Message Box */}
           {errorMessage && (
             <div
               id="error-message-banner"
@@ -152,9 +127,9 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
             <div className="flex items-center justify-between mb-2">
               <label
                 htmlFor="attendee-name-input"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-500"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-600"
               >
-                Full Name <span className="text-rose-500">*</span>
+                Your Full Name <span className="text-rose-500">*</span>
               </label>
               {name.length > 0 && (
                 <span className="text-[11px] text-slate-400 font-mono">
@@ -179,7 +154,7 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
                 autoComplete="name"
                 autoCapitalize="words"
                 disabled={isSubmitting}
-                className={`w-full pl-10 pr-10 py-3.5 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-slate-800 font-medium placeholder:text-slate-400 ${
+                className={`w-full pl-10 pr-10 py-3.5 bg-slate-50 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-slate-800 text-base font-medium placeholder:text-slate-400 ${
                   showError
                     ? 'border-rose-300 focus:ring-rose-400'
                     : 'border-slate-200'
@@ -199,7 +174,10 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
             </div>
 
             {showError && (
-              <p id="name-validation-error" className="text-xs text-rose-600 font-medium pt-1.5 pl-1 flex items-center gap-1">
+              <p
+                id="name-validation-error"
+                className="text-xs text-rose-600 font-medium pt-1.5 pl-1 flex items-center gap-1"
+              >
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 {validation.error}
               </p>
@@ -226,20 +204,6 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
             )}
           </button>
         </form>
-
-        {/* Live System Status Bar */}
-        <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-semibold text-slate-600 uppercase tracking-wider text-[10px]">
-              {isSubmitting ? 'Recording Check-In...' : 'System Ready: Enter Name'}
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400">No login required</span>
-        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, RotateCcw, Copy, Check, Calendar, Clock, Tag, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, RotateCcw, Copy, Check, Calendar, Clock, Tag } from 'lucide-react';
 import { CheckInData } from '../types';
 
 interface SuccessViewProps {
@@ -19,26 +19,24 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
   };
 
   return (
-    <div id="success-view-container" className="w-full max-w-md mx-auto">
-      <div id="success-card" className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden text-center">
+    <div id="success-view-container" className="w-full max-w-md mx-auto animate-fadeIn">
+      <div
+        id="success-card"
+        className="bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-100 overflow-hidden text-center"
+      >
         {/* Success Header */}
         <div className="p-6 sm:p-8">
-          <div className="w-20 h-20 bg-emerald-100/80 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 ring-8 ring-emerald-50">
-            <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
+          <div className="w-16 h-16 bg-emerald-100/90 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 ring-8 ring-emerald-50">
+            <CheckCircle2 className="w-9 h-9 stroke-[2.5]" />
           </div>
 
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-3">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Check-In Confirmed
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-2">
+            Check-in recorded successfully
           </span>
 
           <h1 id="success-title" className="text-2xl font-bold text-slate-900 tracking-tight mb-2">
-            Check-In Recorded
+            Thank you, {data.name}.
           </h1>
-
-          <p id="success-thank-you" className="text-slate-600 text-sm leading-relaxed max-w-xs mx-auto">
-            Thank you, <span className="font-bold text-indigo-600">{data.name}</span>. Your attendance has been recorded successfully at <span className="font-semibold text-slate-800">{data.time}</span>.
-          </p>
 
           {/* Details Section */}
           <div className="mt-6 bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2.5 text-left text-xs">
@@ -69,7 +67,7 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
             </div>
 
             <div className="flex items-center justify-between text-slate-600 pt-0.5">
-              <span className="font-medium">Unique Entry ID</span>
+              <span className="font-medium">Entry ID</span>
               <div className="flex items-center gap-1.5">
                 <code className="font-mono font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
                   {data.id}
@@ -88,7 +86,7 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
           </div>
 
           {/* Reset / Check In Another Person Button */}
-          <div className="mt-6 space-y-3">
+          <div className="mt-6">
             <button
               id="check-in-another-btn"
               type="button"
@@ -98,10 +96,6 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
               <RotateCcw className="w-4 h-4" />
               <span>Check in another person</span>
             </button>
-
-            <p className="text-center text-xs text-slate-400">
-              You may now close this browser tab or scan again on your next visit.
-            </p>
           </div>
         </div>
       </div>
