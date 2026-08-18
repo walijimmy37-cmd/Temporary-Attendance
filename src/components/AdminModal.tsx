@@ -18,7 +18,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { APPS_SCRIPT_SOURCE } from '../data/appsScriptCode';
-import { getApiUrl, saveCustomApiUrl } from '../services/attendanceApi';
+import { getApiUrl, saveCustomApiUrl, testApiEndpoint, isValidGoogleAppsScriptUrl } from '../services/attendanceApi';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -92,32 +92,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleTestEndpoint = async () => {
-    if (!customApiUrl || !customApiUrl.trim()) {
+    const urlToTest = customApiUrl.trim() || getApiUrl();
+    if (!urlToTest) {
       setTestStatus('error');
       setTestMessage('Please enter a Google Apps Script Web App URL first.');
       return;
     }
 
+    if (!isValidGoogleAppsScriptUrl(urlToTest)) {
+      setTestStatus('error');
+      setTestMessage('Invalid format. URL must start with https://, contain script.google.com, and end with /exec.');
+      return;
+    }
+
     setTestStatus('testing');
-    setTestMessage('Pinging Google Apps Script endpoint...');
+    setTestMessage('Testing connection to Google Apps Script endpoint...');
 
     try {
-      const res = await fetch(customApiUrl.trim(), {
-        method: 'GET',
-        headers: { 'Content-Type': 'text/plain' },
-      });
-
-      if (res.ok || res.type === 'opaque') {
+      const result = await testApiEndpoint(urlToTest);
+      if (result.success) {
         setTestStatus('success');
-        setTestMessage('Successfully connected to Google Apps Script endpoint!');
+        setTestMessage(result.message || 'Attendance API connected successfully.');
       } else {
         setTestStatus('error');
-        setTestMessage(`Received HTTP status ${res.status}. Verify deployment settings.`);
+        setTestMessage(result.message || 'Failed to connect to Google Apps Script endpoint.');
       }
     } catch (err: any) {
-      // Due to Google redirects, sometimes GET in browser gives opaque response or CORS warning, but POST works
-      setTestStatus('success');
-      setTestMessage('Endpoint reached (Google Web App verified). Ready for check-ins!');
+      setTestStatus('error');
+      setTestMessage(`Diagnostic failure: ${err.message || 'Network error'}`);
     }
   };
 
@@ -547,7 +549,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="w-full px-3.5 py-2.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-indigo-600 focus:outline-none"
                 />
                 <p className="text-xs text-slate-500">
-                  Provide your deployed Google Apps Script Web App URL. If left blank, the app will run in local demo simulation mode.
+                  Provide your custom Google Apps Script Web App URL override, or leave blank to use the default production endpoint.
                 </p>
               </div>
 
