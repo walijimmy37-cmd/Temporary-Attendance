@@ -1,0 +1,6 @@
+{
+  "name": "Attendance Check-In",
+  "description": "A clean, mobile-friendly temporary attendance check-in system for office reception desks connected with Google Sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
