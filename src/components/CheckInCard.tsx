@@ -149,7 +149,7 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
                 value={name}
                 onChange={handleNameChange}
                 onBlur={() => setInputTouched(true)}
-                placeholder="e.g. Ahmed Wali"
+                placeholder="Enter your full name"
                 maxLength={100}
                 autoComplete="name"
                 autoCapitalize="words"

@@ -17,6 +17,7 @@ import {
   RefreshCw,
   FileSpreadsheet
 } from 'lucide-react';
+import { PRODUCTION_FRONTEND_URL } from '../config';
 import { APPS_SCRIPT_SOURCE } from '../data/appsScriptCode';
 import {
   getApiUrl,
@@ -49,8 +50,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [tempCompanyName, setTempCompanyName] = useState(companyName);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Derive current deployment URL
-  const currentAppUrl = typeof window !== 'undefined' ? window.location.href.split('#')[0].split('?')[0] : '';
+  // Static production Vercel frontend URL
+  const currentAppUrl = PRODUCTION_FRONTEND_URL;
 
   useEffect(() => {
     if (isOpen) {

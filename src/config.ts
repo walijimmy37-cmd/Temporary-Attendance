@@ -1,14 +1,14 @@
 /**
  * Coventra Attendance System Configuration
  *
- * The QR code points to this production frontend URL (Vercel deployment),
- * which loads the public check-in interface.
- * 
- * Update this constant with your final Vercel deployment URL when provided.
+ * The STATIC QR code encodes this exact production Vercel URL directly:
+ * https://coventdaattendance.vercel.app/
+ *
+ * Direct, static, client-side generation with no intermediate redirects,
+ * no tracking services, no ME-QR, and no expiration.
  */
-export const PRODUCTION_FRONTEND_URL =
-  (import.meta as any).env?.VITE_PUBLIC_APP_URL ||
-  'https://coventra-attendance.vercel.app';
+export const PRODUCTION_FRONTEND_URL = 'https://coventdaattendance.vercel.app/';
 
 export const APP_NAME = 'Coventra Attendance';
-export const COMPANY_NAME = 'Coventra';
+export const COMPANY_NAME = 'Coventra Global';
+
