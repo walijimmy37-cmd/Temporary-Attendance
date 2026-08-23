@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Users, QrCode } from 'lucide-react';
 import { CheckInCard } from './components/CheckInCard';
+import { AbsenceCard } from './components/AbsenceCard';
 import { SuccessView } from './components/SuccessView';
 import { DeskSign } from './components/DeskSign';
-import { submitCheckIn } from './services/attendanceApi';
+import { submitCheckIn, submitAbsence } from './services/attendanceApi';
 import { CheckInData } from './types';
-import { APP_NAME, PRODUCTION_FRONTEND_URL } from './config';
+import { APP_NAME } from './config';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'check-in' | 'absence'>('check-in');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<CheckInData | null>(null);
@@ -38,9 +40,54 @@ export default function App() {
     }
   };
 
+  const handleAbsenceSubmit = async ({
+    name,
+    reason,
+    notes,
+  }: {
+    name: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await submitAbsence({
+        name,
+        status: 'Absent',
+        reason,
+        notes,
+        source: 'Reception QR',
+      });
+
+      if (response.success && response.data) {
+        setSuccessData(response.data);
+      } else {
+        setErrorMessage(
+          response.message || "We couldn't confirm the absence record. Please try again."
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage("We couldn't confirm the absence record. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleReset = () => {
     setSuccessData(null);
     setErrorMessage(null);
+  };
+
+  const handleSwitchToAbsence = () => {
+    setErrorMessage(null);
+    setActiveTab('absence');
+  };
+
+  const handleSwitchToCheckIn = () => {
+    setErrorMessage(null);
+    setActiveTab('check-in');
   };
 
   return (
@@ -71,16 +118,25 @@ export default function App() {
         </button>
       </header>
 
-      {/* Main Check-In Area */}
+      {/* Main Content Area */}
       <main className="flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
         <div className="w-full max-w-md">
           {successData ? (
             <SuccessView data={successData} onReset={handleReset} />
+          ) : activeTab === 'absence' ? (
+            <AbsenceCard
+              isSubmitting={isSubmitting}
+              errorMessage={errorMessage}
+              onSubmit={handleAbsenceSubmit}
+              onCancel={handleSwitchToCheckIn}
+              onClearError={() => setErrorMessage(null)}
+            />
           ) : (
             <CheckInCard
               isSubmitting={isSubmitting}
               errorMessage={errorMessage}
               onSubmit={handleCheckInSubmit}
+              onSwitchToAbsence={handleSwitchToAbsence}
               onClearError={() => setErrorMessage(null)}
             />
           )}

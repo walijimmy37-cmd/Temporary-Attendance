@@ -1,4 +1,4 @@
-import { CheckInRequest, CheckInResponse, CheckInData } from '../types';
+import { CheckInRequest, AbsenceRequest, CheckInResponse, CheckInData } from '../types';
 import { normalizeName } from '../utils/nameFormatter';
 
 const STORAGE_KEY_RECENT_CHECKINS = 'attendance_recent_submissions';
@@ -71,7 +71,6 @@ export function saveCustomApiUrl(url: string): void {
     if (isValidGoogleAppsScriptUrl(trimmed)) {
       localStorage.setItem(STORAGE_KEY_API_URL, trimmed);
     } else {
-      // If user typed something invalid or non-empty that doesn't match format, don't keep corrupt value
       localStorage.removeItem(STORAGE_KEY_API_URL);
     }
   } else {
@@ -80,14 +79,14 @@ export function saveCustomApiUrl(url: string): void {
 }
 
 /**
- * Checks client-side recent submissions for duplicate check-ins within 2 minutes.
+ * Checks client-side recent submissions for duplicate records within 2 minutes.
  */
-export function checkClientDuplicate(normalizedName: string): boolean {
+export function checkClientDuplicate(normalizedName: string, expectedStatus?: string): boolean {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_RECENT_CHECKINS);
     if (!raw) return false;
     
-    const entries: Array<{ name: string; timestamp: number; date: string }> = JSON.parse(raw);
+    const entries: Array<{ name: string; timestamp: number; date: string; status?: string }> = JSON.parse(raw);
     const now = Date.now();
     const today = new Date().toISOString().split('T')[0];
 
@@ -110,10 +109,10 @@ export function checkClientDuplicate(normalizedName: string): boolean {
 /**
  * Records a successful submission in client cache for fast duplicate guarding.
  */
-export function recordClientSubmission(normalizedName: string): void {
+export function recordClientSubmission(normalizedName: string, status?: string): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_RECENT_CHECKINS);
-    const entries: Array<{ name: string; timestamp: number; date: string }> = raw ? JSON.parse(raw) : [];
+    const entries: Array<{ name: string; timestamp: number; date: string; status?: string }> = raw ? JSON.parse(raw) : [];
     
     const now = Date.now();
     const today = new Date().toISOString().split('T')[0];
@@ -121,33 +120,14 @@ export function recordClientSubmission(normalizedName: string): void {
     entries.push({
       name: normalizedName,
       timestamp: now,
-      date: today
+      date: today,
+      status: status || 'Present'
     });
 
     localStorage.setItem(STORAGE_KEY_RECENT_CHECKINS, JSON.stringify(entries.slice(-50)));
   } catch (e) {
     // Ignore storage issues
   }
-}
-
-/**
- * Formats a Date object to YYYY-MM-DD HH:mm:ss
- */
-function formatDateTime(date: Date): { timestamp: string; dateStr: string; timeStr: string; dateCompact: string } {
-  const pad = (n: number) => (n < 10 ? '0' + n : String(n));
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-
-  return {
-    timestamp: `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`,
-    dateStr: `${year}-${month}-${day}`,
-    timeStr: `${hours}:${minutes}`,
-    dateCompact: `${year}${month}${day}`
-  };
 }
 
 /**
@@ -234,7 +214,7 @@ export async function testApiEndpoint(urlToTest?: string): Promise<{ success: bo
       const json = JSON.parse(text);
       console.log('[Attendance API Test] Parsed JSON:', json);
 
-      if (json.status === 'ok' || json.service === 'Attendance Check-In API') {
+      if (json.status === 'ok' || json.service?.includes('Attendance')) {
         return {
           success: true,
           message: 'Attendance API connected successfully.',
@@ -287,7 +267,7 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
   }
 
   // 1. Client-side rapid duplicate check (within 2 minutes)
-  if (checkClientDuplicate(normalizedName)) {
+  if (checkClientDuplicate(normalizedName, 'Present')) {
     return {
       success: false,
       isDuplicate: true,
@@ -301,10 +281,11 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
   // 2. Build form-urlencoded payload via URLSearchParams
   const body = new URLSearchParams();
   body.append('name', normalizedName);
+  body.append('status', 'Present');
   body.append('checkInType', request.checkInType || 'Check-In');
   body.append('source', request.source || 'Reception QR');
 
-  console.log('[Attendance API] Sending form-urlencoded POST request:', body.toString());
+  console.log('[Attendance API] Sending check-in POST request:', body.toString());
 
   // 3. Send standard POST request without no-cors mode, waiting for backend response
   try {
@@ -348,7 +329,7 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
 
     // Check backend confirmation
     if (jsonResult && jsonResult.success === true) {
-      recordClientSubmission(normalizedName);
+      recordClientSubmission(normalizedName, 'Present');
       return {
         success: true,
         message: jsonResult.message || 'Check-in recorded successfully. Thank you!',
@@ -382,6 +363,125 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInRes
 }
 
 /**
+ * Submits an absentee record to Google Apps Script using standard form-urlencoded POST.
+ */
+export async function submitAbsence(request: AbsenceRequest): Promise<CheckInResponse> {
+  const normalizedName = normalizeName(request.name);
+  if (!normalizedName) {
+    return {
+      success: false,
+      message: 'Please enter or select the employee name to record an absence.'
+    };
+  }
+
+  const reason = (request.reason || '').trim();
+  if (!reason) {
+    return {
+      success: false,
+      message: 'Please select or provide a reason for the absence.'
+    };
+  }
+
+  // 1. Client-side rapid duplicate check (within 2 minutes)
+  if (checkClientDuplicate(normalizedName, 'Absent')) {
+    return {
+      success: false,
+      isDuplicate: true,
+      message: 'An absence record has already been submitted for this employee recently.'
+    };
+  }
+
+  const apiUrl = getApiUrl();
+  console.log('[Attendance API] Submitting absence to:', apiUrl);
+
+  // 2. Build form-urlencoded payload via URLSearchParams
+  const body = new URLSearchParams();
+  body.append('name', normalizedName);
+  body.append('status', 'Absent');
+  body.append('reason', reason);
+  if (request.notes && request.notes.trim()) {
+    body.append('notes', request.notes.trim());
+  }
+  body.append('source', request.source || 'Reception QR');
+
+  console.log('[Attendance API] Sending absence POST request:', body.toString());
+
+  // 3. Send standard POST request without no-cors mode, waiting for backend response
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: body,
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log('[Attendance API] HTTP response status:', response.status);
+
+    const responseText = await response.text();
+    console.log('[Attendance API] Response body:', responseText);
+
+    // Check if Google Apps Script returned an HTML error
+    const htmlError = extractGoogleScriptHtmlError(responseText);
+    if (htmlError) {
+      console.error('[Attendance API] Google Apps Script HTML error:', htmlError);
+      return {
+        success: false,
+        message: `Google Sheets Script error: ${htmlError}`
+      };
+    }
+
+    let jsonResult: any;
+    try {
+      jsonResult = JSON.parse(responseText);
+      console.log('[Attendance API] Parsed JSON:', jsonResult);
+    } catch (parseError) {
+      console.error('[Attendance API] Invalid JSON received from backend:', responseText);
+      return {
+        success: false,
+        message: "We couldn't confirm the absence record. Please try again."
+      };
+    }
+
+    // Check backend confirmation
+    if (jsonResult && jsonResult.success === true) {
+      recordClientSubmission(normalizedName, 'Absent');
+      return {
+        success: true,
+        message: jsonResult.message || 'Absence recorded successfully.',
+        data: jsonResult.data
+      };
+    } else if (jsonResult && jsonResult.success === false) {
+      return {
+        success: false,
+        isDuplicate: Boolean(jsonResult.isDuplicate),
+        message: jsonResult.message || "We couldn't confirm the absence record. Please try again."
+      };
+    } else {
+      return {
+        success: false,
+        message: "We couldn't confirm the absence record. Please try again."
+      };
+    }
+  } catch (err: any) {
+    console.error('[Attendance API] Absence submission error:', err);
+    if (err.name === 'AbortError') {
+      return {
+        success: false,
+        message: 'Request timed out. Please check your network and try again.'
+      };
+    }
+    return {
+      success: false,
+      message: "We couldn't confirm the absence record. Please try again."
+    };
+  }
+}
+
+/**
  * Diagnostic test check-in that sends real POST to Google Apps Script for 'FRONTEND TEST USER'.
  */
 export async function sendDiagnosticTestCheckIn(): Promise<CheckInResponse> {
@@ -390,6 +490,7 @@ export async function sendDiagnosticTestCheckIn(): Promise<CheckInResponse> {
 
   const body = new URLSearchParams();
   body.append('name', 'FRONTEND TEST USER');
+  body.append('status', 'Present');
   body.append('checkInType', 'Check-In');
   body.append('source', 'Frontend Test');
 

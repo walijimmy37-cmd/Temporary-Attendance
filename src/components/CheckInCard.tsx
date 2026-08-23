@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Loader2, AlertCircle, ArrowRight, X } from 'lucide-react';
+import { User, Loader2, AlertCircle, ArrowRight, X, CalendarX2 } from 'lucide-react';
 import { validateName } from '../utils/nameFormatter';
 
 interface CheckInCardProps {
   isSubmitting: boolean;
   errorMessage: string | null;
   onSubmit: (name: string, checkInType: string) => Promise<void>;
+  onSwitchToAbsence: () => void;
   onClearError: () => void;
 }
 
@@ -13,6 +14,7 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
   isSubmitting,
   errorMessage,
   onSubmit,
+  onSwitchToAbsence,
   onClearError,
 }) => {
   const [name, setName] = useState('');
@@ -55,15 +57,37 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
   };
 
   return (
-    <div id="check-in-container" className="w-full max-w-md mx-auto">
+    <div id="check-in-container" className="w-full max-w-md mx-auto animate-fadeIn">
       {/* Main Check-In Card */}
       <div
         id="check-in-card"
         className="bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-100 overflow-hidden transition-all duration-200"
       >
+        {/* Top Dual Action Mode Switcher */}
+        <div className="p-2 bg-slate-50/80 border-b border-slate-100 grid grid-cols-2 gap-1.5">
+          <button
+            id="tab-check-in"
+            type="button"
+            className="py-2.5 px-3 rounded-xl bg-white text-indigo-700 font-bold text-xs shadow-xs border border-slate-200/80 flex items-center justify-center gap-1.5 cursor-default"
+          >
+            <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+            <span>Check In</span>
+          </button>
+          <button
+            id="tab-record-absence"
+            type="button"
+            onClick={onSwitchToAbsence}
+            disabled={isSubmitting}
+            className="py-2.5 px-3 rounded-xl text-slate-600 hover:text-amber-800 hover:bg-amber-50 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <CalendarX2 className="w-3.5 h-3.5 text-amber-600" />
+            <span>Record Absence</span>
+          </button>
+        </div>
+
         {/* Card Header */}
-        <div className="text-center p-6 sm:p-8 border-b border-slate-100">
-          <div className="inline-block px-3.5 py-1 bg-indigo-50 border border-indigo-100/80 text-indigo-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
+        <div className="text-center p-6 sm:p-7 border-b border-slate-100">
+          <div className="inline-block px-3.5 py-1 bg-indigo-50 border border-indigo-100/80 text-indigo-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-2.5">
             Coventra Attendance
           </div>
           <h1 id="attendance-title" className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -184,25 +208,41 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
             )}
           </div>
 
-          {/* Submit Button */}
-          <button
-            id="check-in-submit-btn"
-            type="submit"
-            disabled={isSubmitting || (inputTouched && !validation.isValid)}
-            className="w-full py-4 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-base shadow-lg shadow-indigo-100 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Recording Check-In...</span>
-              </>
-            ) : (
-              <>
-                <span>Check In</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </button>
+          {/* Action Buttons */}
+          <div className="space-y-3 pt-1">
+            <button
+              id="check-in-submit-btn"
+              type="submit"
+              disabled={isSubmitting || (inputTouched && !validation.isValid)}
+              className="w-full py-4 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-base shadow-lg shadow-indigo-100 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Recording Check-In...</span>
+                </>
+              ) : (
+                <>
+                  <span>Check In</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+
+            {/* Quick Link to Absentee Form */}
+            <div className="text-center pt-2 border-t border-slate-100">
+              <button
+                id="link-record-absence"
+                type="button"
+                onClick={onSwitchToAbsence}
+                disabled={isSubmitting}
+                className="text-xs font-semibold text-slate-500 hover:text-amber-700 inline-flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer"
+              >
+                <CalendarX2 className="w-3.5 h-3.5 text-amber-600" />
+                <span>Need to report an absence? Record Absence</span>
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </div>

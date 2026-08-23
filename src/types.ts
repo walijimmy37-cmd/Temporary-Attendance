@@ -1,6 +1,25 @@
+export type AttendanceStatus = 'Present' | 'Absent';
+
+export type AbsenceReason =
+  | 'Sick Leave'
+  | 'Personal Leave'
+  | 'Emergency'
+  | 'Approved Leave'
+  | 'Work From Home'
+  | 'Late / Unable to Attend'
+  | 'Other';
+
 export interface CheckInRequest {
   name: string;
   checkInType?: string;
+  source?: string;
+}
+
+export interface AbsenceRequest {
+  name: string;
+  status: 'Absent';
+  reason: string;
+  notes?: string;
   source?: string;
 }
 
@@ -10,7 +29,10 @@ export interface CheckInData {
   timestamp: string;
   date: string;
   time: string;
-  checkInType: string;
+  status?: AttendanceStatus | string;
+  checkInType?: string;
+  reason?: string;
+  notes?: string;
   source: string;
   isDuplicate?: boolean;
 }
@@ -29,4 +51,6 @@ export interface RecentCheckIn {
   formattedTime: string;
   date: string;
   source: string;
+  status?: string;
+  reason?: string;
 }

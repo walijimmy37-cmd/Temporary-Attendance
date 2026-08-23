@@ -1,6 +1,6 @@
 {
   "name": "Coventra Attendance",
-  "description": "Clean, mobile-friendly attendance check-in system for the Coventra reception desk.",
+  "description": "Clean, mobile-friendly attendance check-in and absentee recording system for Coventra.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
