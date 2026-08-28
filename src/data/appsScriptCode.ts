@@ -3,16 +3,26 @@ export const APPS_SCRIPT_SOURCE = `/**
  * COVENTRA ATTENDANCE & ABSENTEE RECORD SYSTEM - GOOGLE APPS SCRIPT BACKEND
  * =========================================================================
  * 
+ * Google Sheet: Attendance
+ * Columns (9 Required Columns):
+ * A: Timestamp
+ * B: Date
+ * C: Time
+ * D: Name
+ * E: Status (Present / Absent)
+ * F: Reason (Absence reason or blank for normal check-in)
+ * G: Notes (Optional notes for absence or blank for normal check-in)
+ * H: Source (e.g. Reception QR)
+ * I: Unique Entry ID (ATT-YYYYMMDD-XXXXX or ABS-YYYYMMDD-XXXXX)
+ * 
  * Features:
  * 1. Dual Support: Normal Check-In (Present) & Absentee Records (Absent).
- * 2. Automated Header Management: Automatically upgrades sheet headers to
- *    [Timestamp, Date, Time, Name, Status, Reason, Notes, Source, Unique Entry ID]
- *    without deleting or modifying existing attendance data.
- * 3. Absentee Styling: Absentee rows are automatically styled with light red 
- *    background (#FEE2E2) and dark red text (#991B1B).
- * 4. Duplicate & Conflict Protection: Prevents duplicate submissions and protects
- *    integrity by blocking accidental overwrites if an employee already checked in.
- * 5. Server-Side Timestamps & Entry IDs.
+ * 2. Automated Header Migration: Automatically migrates existing sheets to the 
+ *    exact 9 required columns without deleting, clearing, or overwriting existing records.
+ * 3. Server-Side Red Formatting: Absentee rows (Columns A:I) are automatically styled
+ *    with light red background (#FEE2E2) and dark red text (#991B1B).
+ * 4. Unique ID Generation: ATT-YYYYMMDD-XXXXX for attendance, ABS-YYYYMMDD-XXXXX for absence.
+ * 5. Duplicate & Conflict Protection.
  */
 
 // --- CONFIGURATION ---
@@ -25,13 +35,13 @@ var SHEET_NAME = "Attendance";
 var DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
 
 // Color formatting for Absentee rows
-var ABSENT_BG_COLOR = "#FEE2E2";  // Light red
+var ABSENT_BG_COLOR = "#FEE2E2";   // Light red
 var ABSENT_TEXT_COLOR = "#991B1B"; // Dark red
 
 function doGet(e) {
   var result = {
     status: "ok",
-    service: "Attendance & Absentee Check-In API",
+    service: "Coventra Attendance & Absentee API",
     timestamp: new Date().toISOString(),
     message: "Google Apps Script endpoint is live and ready."
   };
@@ -71,7 +81,7 @@ function doPost(e) {
       source = e.parameter.source || "Reception QR";
     }
 
-    // Fallback: Check postData if JSON or raw form-urlencoded was posted
+    // Fallback: Check postData if raw form-urlencoded or JSON was posted
     if (!rawName && e && e.postData && e.postData.contents) {
       try {
         var parsed = JSON.parse(e.postData.contents);
@@ -105,7 +115,6 @@ function doPost(e) {
       status = "Absent";
     } else {
       status = "Present";
-      if (!checkInType) checkInType = "Check-In";
     }
 
     Logger.log("Mode: " + (isAbsence ? "ABSENCE" : "CHECK-IN") + " | Name: " + rawName);
@@ -151,7 +160,7 @@ function doPost(e) {
       }
     }
 
-    // 4. Get or initialize worksheet in Google Sheet
+    // 4. Get or initialize worksheet in Google Sheet and ensure 9 columns
     var ss = getSpreadsheet();
     var sheet = getOrCreateSheet(ss);
 
@@ -160,7 +169,8 @@ function doPost(e) {
     var timeZone = Session.getScriptTimeZone() || "GMT";
     var timestampStr = Utilities.formatDate(now, timeZone, "yyyy-MM-dd HH:mm:ss");
     var dateStr = Utilities.formatDate(now, timeZone, "yyyy-MM-dd");
-    var timeStr = Utilities.formatDate(now, timeZone, "HH:mm");
+    var timeStr = Utilities.formatDate(now, timeZone, "HH:mm:ss");
+    var timeShort = Utilities.formatDate(now, timeZone, "HH:mm");
     var dateCompact = Utilities.formatDate(now, timeZone, "yyyyMMdd");
 
     // 6. Duplicate & Conflict Check
@@ -174,22 +184,27 @@ function doPost(e) {
       });
     }
 
-    // 7. Generate unique entry ID
-    var totalRows = sheet.getLastRow();
-    var randomSuffix = ("000" + Math.floor(Math.random() * 1000)).slice(-3);
-    var prefix = isAbsence ? "ABS-" : "ATT-";
-    var entryId = prefix + dateCompact + "-" + ("00" + Math.max(1, totalRows)).slice(-3) + randomSuffix.charAt(0);
+    // 7. Generate unique entry ID server-side
+    var entryId = generateEntryIdServer(isAbsence, dateCompact);
 
-    // 8. Append record row to Google Sheet
-    // Columns: [Timestamp, Date, Time, Name, Status, Reason, Notes, Source, Unique Entry ID]
+    // 8. Append record row to Google Sheet (Exact 9 Columns)
+    // Column A: Timestamp
+    // Column B: Date
+    // Column C: Time
+    // Column D: Name
+    // Column E: Status (Present / Absent)
+    // Column F: Reason (Absence Reason or blank)
+    // Column G: Notes (Notes or blank)
+    // Column H: Source (Reception QR)
+    // Column I: Unique Entry ID
     var rowData = [
       timestampStr,
       dateStr,
       timeStr,
       normalizedName,
-      status,
-      isAbsence ? reason : (checkInType !== "Check-In" ? checkInType : ""),
-      notes || "",
+      isAbsence ? "Absent" : "Present",
+      isAbsence ? reason : "",
+      isAbsence ? (notes || "") : "",
       source,
       entryId
     ];
@@ -197,9 +212,9 @@ function doPost(e) {
     sheet.appendRow(rowData);
     var newRowIndex = sheet.getLastRow();
 
-    // 9. Format Absentee row with Red Styling
+    // 9. Format Absentee row with Red Styling (Server-Side)
     if (isAbsence) {
-      var rowRange = sheet.getRange(newRowIndex, 1, 1, rowData.length);
+      var rowRange = sheet.getRange(newRowIndex, 1, 1, 9);
       rowRange.setBackground(ABSENT_BG_COLOR);
       rowRange.setFontColor(ABSENT_TEXT_COLOR);
       rowRange.setFontWeight("bold");
@@ -214,13 +229,12 @@ function doPost(e) {
       data: {
         id: entryId,
         name: normalizedName,
-        status: status,
+        status: isAbsence ? "Absent" : "Present",
         reason: isAbsence ? reason : undefined,
-        notes: notes || undefined,
+        notes: (isAbsence && notes) ? notes : undefined,
         timestamp: timestampStr,
         date: dateStr,
-        time: timeStr,
-        checkInType: isAbsence ? undefined : checkInType,
+        time: timeShort,
         source: source
       }
     };
@@ -238,6 +252,21 @@ function doPost(e) {
       lock.releaseLock();
     } catch (e) {}
   }
+}
+
+/**
+ * Generates server-side unique entry ID:
+ * - ATT-YYYYMMDD-XXXXX for normal attendance
+ * - ABS-YYYYMMDD-XXXXX for absence records
+ */
+function generateEntryIdServer(isAbsence, dateCompact) {
+  var prefix = isAbsence ? "ABS-" : "ATT-";
+  var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  var randomPart = "";
+  for (var i = 0; i < 5; i++) {
+    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return prefix + dateCompact + "-" + randomPart;
 }
 
 function normalizeNameScript(input) {
@@ -303,7 +332,7 @@ function checkDuplicateOrConflict(sheet, normalizedName, dateStr, currentTimesta
         if (!isExistingAbsence && isSubmittingAbsence) {
           return {
             hasConflict: true,
-            message: "This employee already has an attendance record for today."
+            message: "This employee already has an attendance check-in for today."
           };
         }
 
@@ -311,7 +340,7 @@ function checkDuplicateOrConflict(sheet, normalizedName, dateStr, currentTimesta
         if (isExistingAbsence && !isSubmittingAbsence) {
           return {
             hasConflict: true,
-            message: "This employee already has an absence record for today."
+            message: "This employee has already been recorded as Absent for today."
           };
         }
 
@@ -349,8 +378,14 @@ function getSpreadsheet() {
 }
 
 /**
- * Gets or creates the 'Attendance' sheet and safely manages headers:
- * Automatically upgrades 7-column headers to 9-column headers preserving all existing data.
+ * Gets or creates the 'Attendance' sheet and safely executes header migration:
+ * Migrates legacy 7-column sheets to the exact 9 required columns:
+ * [Timestamp, Date, Time, Name, Status, Reason, Notes, Source, Unique Entry ID]
+ * 
+ * Preserves all existing records:
+ * - Existing normal records get Status = 'Present', Reason = '', Notes = ''
+ * - Existing Source and Unique Entry ID are preserved in columns H and I.
+ * - Does not delete, clear, or recreate the sheet.
  */
 function getOrCreateSheet(ss) {
   var sheet = ss.getSheetByName(SHEET_NAME);
@@ -358,7 +393,14 @@ function getOrCreateSheet(ss) {
     sheet = ss.insertSheet(SHEET_NAME);
   }
 
-  var standardHeaders = [
+  return ensureAttendanceHeaders(sheet);
+}
+
+/**
+ * Ensures the Attendance sheet has the exact 9-column headers.
+ */
+function ensureAttendanceHeaders(sheet) {
+  var REQUIRED_HEADERS = [
     "Timestamp",
     "Date",
     "Time",
@@ -370,33 +412,126 @@ function getOrCreateSheet(ss) {
     "Unique Entry ID"
   ];
 
-  if (sheet.getLastRow() === 0) {
-    // Brand new sheet
-    sheet.appendRow(standardHeaders);
-    var headerRange = sheet.getRange(1, 1, 1, standardHeaders.length);
-    headerRange.setFontWeight("bold");
-    headerRange.setBackground("#F3F4F6");
-    headerRange.setFontColor("#111827");
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+
+  // If empty sheet
+  if (lastRow === 0 || lastCol === 0) {
+    sheet.appendRow(REQUIRED_HEADERS);
+    var hRange = sheet.getRange(1, 1, 1, REQUIRED_HEADERS.length);
+    hRange.setFontWeight("bold");
+    hRange.setBackground("#F3F4F6");
+    hRange.setFontColor("#111827");
     sheet.setFrozenRows(1);
-    for (var col = 1; col <= standardHeaders.length; col++) {
-      sheet.autoResizeColumn(col);
+    for (var c = 1; c <= REQUIRED_HEADERS.length; c++) {
+      sheet.autoResizeColumn(c);
     }
-  } else {
-    // Check if header needs upgrading from legacy structure
-    var headerValues = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 7)).getValues()[0];
-    var col5Name = (headerValues[4] || "").toString().trim().toLowerCase();
-    
-    if (col5Name === "check-in type" || sheet.getLastColumn() < 9) {
-      Logger.log("Upgrading sheet headers to support Status, Reason, and Notes...");
-      sheet.getRange(1, 1, 1, standardHeaders.length).setValues([standardHeaders]);
-      var upgradedHeaderRange = sheet.getRange(1, 1, 1, standardHeaders.length);
-      upgradedHeaderRange.setFontWeight("bold");
-      upgradedHeaderRange.setBackground("#F3F4F6");
-      upgradedHeaderRange.setFontColor("#111827");
-      sheet.setFrozenRows(1);
-    }
+    return sheet;
   }
 
+  // Read current row 1 headers
+  var currentHeaders = sheet.getRange(1, 1, 1, Math.max(lastCol, REQUIRED_HEADERS.length)).getValues()[0];
+  var colE = (currentHeaders[4] || "").toString().trim().toLowerCase();
+  var colF = (currentHeaders[5] || "").toString().trim().toLowerCase();
+  var colG = (currentHeaders[6] || "").toString().trim().toLowerCase();
+  var colH = (currentHeaders[7] || "").toString().trim().toLowerCase();
+  var colI = (currentHeaders[8] || "").toString().trim().toLowerCase();
+
+  var isAlreadyMigrated = (
+    colE === "status" &&
+    colF === "reason" &&
+    colG === "notes" &&
+    colH === "source" &&
+    colI === "unique entry id" &&
+    lastCol >= 9
+  );
+
+  if (isAlreadyMigrated) {
+    return sheet;
+  }
+
+  Logger.log("Migrating Attendance worksheet from legacy structure to 9 required columns...");
+
+  // If there are existing data rows (lastRow >= 2)
+  if (lastRow >= 2) {
+    var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
+    var oldValues = dataRange.getValues();
+    var migratedRows = [];
+
+    for (var r = 0; r < oldValues.length; r++) {
+      var row = oldValues[r];
+      var valTimestamp = row[0] || "";
+      var valDate = row[1] || "";
+      var valTime = row[2] || "";
+      var valName = row[3] || "";
+      
+      var oldCol5 = (row[4] || "").toString().trim();
+      var oldCol6 = (row[5] || "").toString().trim();
+      var oldCol7 = (row[6] || "").toString().trim();
+      var oldCol8 = (row[7] || "").toString().trim();
+      var oldCol9 = (row[8] || "").toString().trim();
+
+      var valStatus = "Present";
+      var valReason = "";
+      var valNotes = "";
+      var valSource = "Reception QR";
+      var valUniqueId = "";
+
+      if (oldCol5.toLowerCase() === "absent") {
+        valStatus = "Absent";
+        valReason = oldCol6;
+        valNotes = oldCol7;
+        valSource = oldCol8 || "Reception QR";
+        valUniqueId = oldCol9;
+      } else if (oldCol5.toLowerCase() === "present") {
+        valStatus = "Present";
+        valReason = oldCol6 || "";
+        valNotes = oldCol7 || "";
+        valSource = oldCol8 || "Reception QR";
+        valUniqueId = oldCol9;
+      } else {
+        // Legacy 7-column format: [Timestamp, Date, Time, Name, Check-In Type, Source, Unique Entry ID]
+        valStatus = "Present";
+        valReason = "";
+        valNotes = "";
+        valSource = oldCol6 || "Reception QR";
+        valUniqueId = oldCol7 || "";
+      }
+
+      migratedRows.push([
+        valTimestamp,
+        valDate,
+        valTime,
+        valName,
+        valStatus,
+        valReason,
+        valNotes,
+        valSource,
+        valUniqueId
+      ]);
+    }
+
+    // Set updated header row and data rows
+    sheet.getRange(1, 1, 1, REQUIRED_HEADERS.length).setValues([REQUIRED_HEADERS]);
+    sheet.getRange(2, 1, migratedRows.length, REQUIRED_HEADERS.length).setValues(migratedRows);
+
+  } else {
+    // Only header row exists
+    sheet.getRange(1, 1, 1, REQUIRED_HEADERS.length).setValues([REQUIRED_HEADERS]);
+  }
+
+  // Format header row
+  var headerRange = sheet.getRange(1, 1, 1, REQUIRED_HEADERS.length);
+  headerRange.setFontWeight("bold");
+  headerRange.setBackground("#F3F4F6");
+  headerRange.setFontColor("#111827");
+  sheet.setFrozenRows(1);
+
+  for (var col = 1; col <= REQUIRED_HEADERS.length; col++) {
+    sheet.autoResizeColumn(col);
+  }
+
+  Logger.log("Migration complete. Safely preserved " + (lastRow >= 2 ? (lastRow - 1) : 0) + " records.");
   return sheet;
 }
 
@@ -405,3 +540,4 @@ function createJsonResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 `;
+

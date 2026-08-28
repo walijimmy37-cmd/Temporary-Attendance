@@ -459,16 +459,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       Name the spreadsheet <strong>"Office Attendance Log"</strong> and name the first worksheet <strong>"Attendance"</strong>.
                     </li>
                     <li>
-                      The Google Sheet will automatically have these 7 columns formatted on first check-in:
-                      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                        <span className="bg-white p-1 rounded border">1. Timestamp</span>
-                        <span className="bg-white p-1 rounded border">2. Date</span>
-                        <span className="bg-white p-1 rounded border">3. Time</span>
-                        <span className="bg-white p-1 rounded border">4. Name</span>
-                        <span className="bg-white p-1 rounded border">5. Check-In Type</span>
-                        <span className="bg-white p-1 rounded border">6. Source</span>
-                        <span className="bg-white p-1 rounded border col-span-2">7. Unique Entry ID</span>
+                      The Google Sheet will automatically have these 9 columns formatted on submission:
+                      <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 font-mono text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                        <span className="bg-white p-1 rounded border">A. Timestamp</span>
+                        <span className="bg-white p-1 rounded border">B. Date</span>
+                        <span className="bg-white p-1 rounded border">C. Time</span>
+                        <span className="bg-white p-1 rounded border">D. Name</span>
+                        <span className="bg-white p-1 rounded border font-semibold text-indigo-700">E. Status</span>
+                        <span className="bg-white p-1 rounded border font-semibold text-indigo-700">F. Reason</span>
+                        <span className="bg-white p-1 rounded border font-semibold text-indigo-700">G. Notes</span>
+                        <span className="bg-white p-1 rounded border">H. Source</span>
+                        <span className="bg-white p-1 rounded border col-span-2 sm:col-span-1">I. Unique Entry ID</span>
                       </div>
+                      <p className="mt-1.5 text-[11px] text-slate-500">
+                        * Note: Absentee rows are automatically styled server-side with a light red background and dark red text. Existing sheet records are preserved safely.
+                      </p>
                     </li>
                   </ol>
                 </div>

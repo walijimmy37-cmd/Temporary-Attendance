@@ -398,6 +398,7 @@ export async function submitAbsence(request: AbsenceRequest): Promise<CheckInRes
   const body = new URLSearchParams();
   body.append('name', normalizedName);
   body.append('status', 'Absent');
+  body.append('checkInType', 'Absent');
   body.append('reason', reason);
   if (request.notes && request.notes.trim()) {
     body.append('notes', request.notes.trim());

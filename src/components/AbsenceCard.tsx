@@ -251,7 +251,7 @@ export const AbsenceCard: React.FC<AbsenceCardProps> = ({
                 htmlFor="custom-reason-input"
                 className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2"
               >
-                Please Specify Reason <span className="text-rose-500">*</span>
+                Other Reason <span className="text-rose-500">*</span>
               </label>
               <input
                 id="custom-reason-input"
