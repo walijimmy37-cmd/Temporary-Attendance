@@ -9,7 +9,7 @@ const DUPLICATE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
  * Known working Google Apps Script Web App production endpoint.
  */
 export const DEFAULT_PRODUCTION_API_URL =
-  'https://script.google.com/macros/s/AKfycbyfAbSLsXuhNbNMN-S5k8_nT4dT61xr8gYhiz2B1jq9GFkF6kF7NxDoT7Yd5qwLS8xXdg/exec';
+  'https://script.google.com/macros/s/AKfycbz-7aJIMcBMgty5aRMnAdlhcgwHih31KZgTYVuyDgHQa9zffbsjeYYCjBVvH7246le2/exec';
 
 /**
  * Validates whether an attendance API URL matches the Google Apps Script Web App structure.
