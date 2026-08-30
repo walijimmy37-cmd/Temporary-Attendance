@@ -1,4 +1,4 @@
-export type AttendanceStatus = 'Present' | 'Absent';
+export type AttendanceStatus = 'Present' | 'Absent' | 'Short Leave';
 
 export type AbsenceReason =
   | 'Sick Leave'
@@ -12,6 +12,13 @@ export type AbsenceReason =
 export interface CheckInRequest {
   name: string;
   checkInType?: string;
+  source?: string;
+}
+
+export interface ShortLeaveRequest {
+  name: string;
+  status: 'Short Leave';
+  reason: string;
   source?: string;
 }
 

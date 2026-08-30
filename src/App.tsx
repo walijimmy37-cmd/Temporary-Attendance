@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Users, QrCode } from 'lucide-react';
 import { CheckInCard } from './components/CheckInCard';
+import { ShortLeaveCard } from './components/ShortLeaveCard';
 import { AbsenceCard } from './components/AbsenceCard';
 import { SuccessView } from './components/SuccessView';
 import { DeskSign } from './components/DeskSign';
-import { submitCheckIn, submitAbsence } from './services/attendanceApi';
+import { submitCheckIn, submitShortLeave, submitAbsence } from './services/attendanceApi';
 import { CheckInData } from './types';
 import { APP_NAME } from './config';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'check-in' | 'absence'>('check-in');
+  const [activeTab, setActiveTab] = useState<'check-in' | 'short-leave' | 'absence'>('check-in');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<CheckInData | null>(null);
@@ -35,6 +36,38 @@ export default function App() {
       }
     } catch (err: any) {
       setErrorMessage("We couldn't confirm your check-in. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleShortLeaveSubmit = async ({
+    name,
+    reason,
+  }: {
+    name: string;
+    reason: string;
+  }) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await submitShortLeave({
+        name,
+        status: 'Short Leave',
+        reason,
+        source: 'Reception QR',
+      });
+
+      if (response.success && response.data) {
+        setSuccessData(response.data);
+      } else {
+        setErrorMessage(
+          response.message || "We couldn't confirm the short leave record. Please try again."
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage("We couldn't confirm the short leave record. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -80,14 +113,19 @@ export default function App() {
     setErrorMessage(null);
   };
 
-  const handleSwitchToAbsence = () => {
-    setErrorMessage(null);
-    setActiveTab('absence');
-  };
-
   const handleSwitchToCheckIn = () => {
     setErrorMessage(null);
     setActiveTab('check-in');
+  };
+
+  const handleSwitchToShortLeave = () => {
+    setErrorMessage(null);
+    setActiveTab('short-leave');
+  };
+
+  const handleSwitchToAbsence = () => {
+    setErrorMessage(null);
+    setActiveTab('absence');
   };
 
   return (
@@ -123,12 +161,22 @@ export default function App() {
         <div className="w-full max-w-md">
           {successData ? (
             <SuccessView data={successData} onReset={handleReset} />
+          ) : activeTab === 'short-leave' ? (
+            <ShortLeaveCard
+              isSubmitting={isSubmitting}
+              errorMessage={errorMessage}
+              onSubmit={handleShortLeaveSubmit}
+              onSwitchToCheckIn={handleSwitchToCheckIn}
+              onSwitchToAbsence={handleSwitchToAbsence}
+              onClearError={() => setErrorMessage(null)}
+            />
           ) : activeTab === 'absence' ? (
             <AbsenceCard
               isSubmitting={isSubmitting}
               errorMessage={errorMessage}
               onSubmit={handleAbsenceSubmit}
               onCancel={handleSwitchToCheckIn}
+              onSwitchToShortLeave={handleSwitchToShortLeave}
               onClearError={() => setErrorMessage(null)}
             />
           ) : (
@@ -136,6 +184,7 @@ export default function App() {
               isSubmitting={isSubmitting}
               errorMessage={errorMessage}
               onSubmit={handleCheckInSubmit}
+              onSwitchToShortLeave={handleSwitchToShortLeave}
               onSwitchToAbsence={handleSwitchToAbsence}
               onClearError={() => setErrorMessage(null)}
             />

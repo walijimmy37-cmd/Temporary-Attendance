@@ -1,4 +1,4 @@
-import { CheckInRequest, AbsenceRequest, CheckInResponse, CheckInData } from '../types';
+import { CheckInRequest, ShortLeaveRequest, AbsenceRequest, CheckInResponse, CheckInData } from '../types';
 import { normalizeName } from '../utils/nameFormatter';
 
 const STORAGE_KEY_RECENT_CHECKINS = 'attendance_recent_submissions';
@@ -478,6 +478,139 @@ export async function submitAbsence(request: AbsenceRequest): Promise<CheckInRes
     return {
       success: false,
       message: "We couldn't confirm the absence record. Please try again."
+    };
+  }
+}
+
+/**
+ * Submits a short leave record using standard form-urlencoded POST.
+ */
+export async function submitShortLeave(request: ShortLeaveRequest): Promise<CheckInResponse> {
+  const normalizedName = normalizeName(request.name);
+  if (!normalizedName) {
+    return {
+      success: false,
+      message: 'Please enter your full name.'
+    };
+  }
+
+  const reason = (request.reason || '').trim();
+  if (!reason) {
+    return {
+      success: false,
+      message: 'Please enter a reason for your short leave.'
+    };
+  }
+
+  // 1. Client-side rapid duplicate check (within 2 minutes)
+  if (checkClientDuplicate(normalizedName, 'Short Leave')) {
+    return {
+      success: false,
+      isDuplicate: true,
+      message: 'A short leave record has already been submitted for this employee recently.'
+    };
+  }
+
+  const apiUrl = getApiUrl();
+  console.log('[Attendance API] Submitting short leave to:', apiUrl);
+
+  // 2. Build form-urlencoded payload via URLSearchParams
+  const body = new URLSearchParams();
+  body.append('name', normalizedName);
+  body.append('status', 'Short Leave');
+  body.append('checkInType', 'Short Leave');
+  body.append('reason', reason);
+  body.append('source', request.source || 'Reception QR');
+
+  console.log('[Attendance API] Sending short leave POST request:', body.toString());
+
+  // Generate fallback timestamp and ID if needed
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toTimeString().slice(0, 5);
+  const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+  const dateCompact = dateStr.replace(/-/g, '');
+  const fallbackId = `SHL-${dateCompact}-${randomSuffix}`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: body,
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log('[Attendance API] HTTP response status:', response.status);
+
+    const responseText = await response.text();
+    console.log('[Attendance API] Response body:', responseText);
+
+    // Check if Google Apps Script returned an HTML error
+    const htmlError = extractGoogleScriptHtmlError(responseText);
+    if (htmlError) {
+      console.error('[Attendance API] Google Apps Script HTML error:', htmlError);
+      return {
+        success: false,
+        message: `Google Sheets Script error: ${htmlError}`
+      };
+    }
+
+    let jsonResult: any;
+    try {
+      jsonResult = JSON.parse(responseText);
+      console.log('[Attendance API] Parsed JSON:', jsonResult);
+    } catch (parseError) {
+      console.error('[Attendance API] Invalid JSON received from backend:', responseText);
+      return {
+        success: false,
+        message: "We couldn't confirm the short leave record. Please try again."
+      };
+    }
+
+    // Check backend confirmation
+    if (jsonResult && jsonResult.success === true) {
+      recordClientSubmission(normalizedName, 'Short Leave');
+      return {
+        success: true,
+        message: jsonResult.message || 'Short leave recorded successfully.',
+        data: {
+          id: jsonResult.data?.id || fallbackId,
+          name: normalizedName,
+          status: 'Short Leave',
+          reason: reason,
+          timestamp: jsonResult.data?.timestamp || `${dateStr} ${timeStr}`,
+          date: jsonResult.data?.date || dateStr,
+          time: jsonResult.data?.time || timeStr,
+          source: request.source || 'Reception QR'
+        }
+      };
+    } else if (jsonResult && jsonResult.success === false) {
+      return {
+        success: false,
+        isDuplicate: Boolean(jsonResult.isDuplicate),
+        message: jsonResult.message || "We couldn't confirm the short leave record. Please try again."
+      };
+    } else {
+      return {
+        success: false,
+        message: "We couldn't confirm the short leave record. Please try again."
+      };
+    }
+  } catch (err: any) {
+    console.error('[Attendance API] Short leave submission error:', err);
+    if (err.name === 'AbortError') {
+      return {
+        success: false,
+        message: 'Request timed out. Please check your network and try again.'
+      };
+    }
+    return {
+      success: false,
+      message: "We couldn't confirm the short leave record. Please try again."
     };
   }
 }

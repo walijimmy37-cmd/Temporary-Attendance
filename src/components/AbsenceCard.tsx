@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, AlertCircle, FileText, CalendarX2, ArrowRight, X, ChevronDown, Check, Loader2 } from 'lucide-react';
+import { User, AlertCircle, FileText, CalendarX2, ArrowRight, X, ChevronDown, Check, Loader2, Clock } from 'lucide-react';
 import { validateName } from '../utils/nameFormatter';
 import { AbsenceReason } from '../types';
 
@@ -8,6 +8,7 @@ interface AbsenceCardProps {
   errorMessage: string | null;
   onSubmit: (data: { name: string; reason: string; notes?: string }) => Promise<void>;
   onCancel: () => void;
+  onSwitchToShortLeave?: () => void;
   onClearError: () => void;
 }
 
@@ -26,6 +27,7 @@ export const AbsenceCard: React.FC<AbsenceCardProps> = ({
   errorMessage,
   onSubmit,
   onCancel,
+  onSwitchToShortLeave,
   onClearError,
 }) => {
   const [name, setName] = useState('');
@@ -99,9 +101,40 @@ export const AbsenceCard: React.FC<AbsenceCardProps> = ({
         id="absence-card"
         className="bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-amber-200/60 overflow-hidden transition-all duration-200"
       >
+        {/* Top 3 Action Mode Switcher */}
+        <div className="p-2 bg-slate-50/90 border-b border-slate-100 grid grid-cols-3 gap-1.5">
+          <button
+            id="tab-check-in-from-absence"
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="py-2 px-2 rounded-xl text-slate-600 hover:text-indigo-700 hover:bg-white font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+          >
+            <span>Check In</span>
+          </button>
+          <button
+            id="tab-short-leave-from-absence"
+            type="button"
+            onClick={onSwitchToShortLeave || onCancel}
+            disabled={isSubmitting}
+            className="py-2 px-2 rounded-xl text-slate-600 hover:text-sky-800 hover:bg-white font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+          >
+            <Clock className="w-3 h-3 text-sky-600" />
+            <span className="truncate">Short Leave</span>
+          </button>
+          <button
+            id="tab-record-absence-active"
+            type="button"
+            className="py-2 px-2 rounded-xl bg-white text-amber-800 font-bold text-[11px] sm:text-xs shadow-xs border border-amber-200/80 flex items-center justify-center gap-1 cursor-default"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+            <span className="truncate">Absence</span>
+          </button>
+        </div>
+
         {/* Header with clear Absentee visual distinction */}
-        <div className="text-center p-6 sm:p-8 bg-linear-to-b from-amber-50/50 to-white border-b border-slate-100">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-amber-100/80 border border-amber-300/80 text-amber-900 rounded-full text-xs font-bold uppercase tracking-wider mb-3">
+        <div className="text-center p-6 sm:p-7 bg-linear-to-b from-amber-50/50 to-white border-b border-slate-100">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-amber-100/80 border border-amber-300/80 text-amber-900 rounded-full text-xs font-bold uppercase tracking-wider mb-2.5">
             <CalendarX2 className="w-3.5 h-3.5 text-amber-700" />
             Absentee Record
           </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, RotateCcw, Copy, Check, Calendar, Clock, Tag, CalendarX2, FileText } from 'lucide-react';
+import { CheckCircle2, RotateCcw, Copy, Check, Calendar, Clock, Tag, CalendarX2, FileText, Timer } from 'lucide-react';
 import { CheckInData } from '../types';
 
 interface SuccessViewProps {
@@ -9,7 +9,8 @@ interface SuccessViewProps {
 
 export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
   const [copied, setCopied] = useState(false);
-  const isAbsence = data.status === 'Absent' || Boolean(data.reason);
+  const isShortLeave = data.status === 'Short Leave';
+  const isAbsence = data.status === 'Absent' || (Boolean(data.reason) && !isShortLeave);
 
   const handleCopyId = () => {
     if (data.id) {
@@ -24,12 +25,31 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
       <div
         id="success-card"
         className={`bg-white rounded-2xl shadow-xl shadow-slate-200/70 border overflow-hidden text-center transition-all ${
-          isAbsence ? 'border-amber-200' : 'border-slate-100'
+          isShortLeave
+            ? 'border-sky-200'
+            : isAbsence
+            ? 'border-amber-200'
+            : 'border-slate-100'
         }`}
       >
         {/* Success Header */}
         <div className="p-6 sm:p-8">
-          {isAbsence ? (
+          {isShortLeave ? (
+            <>
+              <div className="w-16 h-16 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center mx-auto mb-4 ring-8 ring-sky-50">
+                <Timer className="w-8 h-8 stroke-[2.2]" />
+              </div>
+              <span className="inline-flex items-center px-3.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-800 text-xs font-bold uppercase tracking-wider mb-2">
+                Short leave recorded successfully
+              </span>
+              <h1 id="success-title" className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
+                {data.name}
+              </h1>
+              <p className="text-xs text-slate-500 font-medium">
+                Short leave status has been logged in the system.
+              </p>
+            </>
+          ) : isAbsence ? (
             <>
               <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 ring-8 ring-amber-50">
                 <CalendarX2 className="w-8 h-8 stroke-[2.2]" />
@@ -66,7 +86,11 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
                 <Tag className="w-3.5 h-3.5 text-slate-400" />
                 Status
               </span>
-              {isAbsence ? (
+              {isShortLeave ? (
+                <span className="font-bold px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 border border-sky-200">
+                  Short Leave
+                </span>
+              ) : isAbsence ? (
                 <span className="font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200">
                   Absent
                 </span>
@@ -77,8 +101,8 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
               )}
             </div>
 
-            {/* Absence Reason if absent */}
-            {isAbsence && data.reason && (
+            {/* Reason if Short Leave or Absence */}
+            {data.reason && (
               <div className="flex items-center justify-between text-slate-600 pb-2 border-b border-slate-200/60">
                 <span className="flex items-center gap-1.5 font-medium">
                   <FileText className="w-3.5 h-3.5 text-slate-400" />
@@ -122,23 +146,25 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
             </div>
 
             {/* Entry ID */}
-            <div className="flex items-center justify-between text-slate-600 pt-0.5">
-              <span className="font-medium">Entry ID</span>
-              <div className="flex items-center gap-1.5">
-                <code className="font-mono font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
-                  {data.id}
-                </code>
-                <button
-                  id="copy-entry-id-btn"
-                  type="button"
-                  onClick={handleCopyId}
-                  className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
-                  title="Copy Entry ID"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
+            {data.id && (
+              <div className="flex items-center justify-between text-slate-600 pt-0.5">
+                <span className="font-medium">Entry ID</span>
+                <div className="flex items-center gap-1.5">
+                  <code className="font-mono font-semibold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {data.id}
+                  </code>
+                  <button
+                    id="copy-entry-id-btn"
+                    type="button"
+                    onClick={handleCopyId}
+                    className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                    title="Copy Entry ID"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Reset / Return Button */}
@@ -150,7 +176,13 @@ export const SuccessView: React.FC<SuccessViewProps> = ({ data, onReset }) => {
               className="w-full py-3.5 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>{isAbsence ? 'Record another attendance or absence' : 'Check in another person'}</span>
+              <span>
+                {isShortLeave
+                  ? 'Record another attendance or leave'
+                  : isAbsence
+                  ? 'Record another attendance or absence'
+                  : 'Check in another person'}
+              </span>
             </button>
           </div>
         </div>

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Loader2, AlertCircle, ArrowRight, X, CalendarX2 } from 'lucide-react';
+import { User, Loader2, AlertCircle, ArrowRight, X, CalendarX2, Clock } from 'lucide-react';
 import { validateName } from '../utils/nameFormatter';
 
 interface CheckInCardProps {
   isSubmitting: boolean;
   errorMessage: string | null;
   onSubmit: (name: string, checkInType: string) => Promise<void>;
+  onSwitchToShortLeave: () => void;
   onSwitchToAbsence: () => void;
   onClearError: () => void;
 }
@@ -14,6 +15,7 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
   isSubmitting,
   errorMessage,
   onSubmit,
+  onSwitchToShortLeave,
   onSwitchToAbsence,
   onClearError,
 }) => {
@@ -63,25 +65,35 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
         id="check-in-card"
         className="bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-100 overflow-hidden transition-all duration-200"
       >
-        {/* Top Dual Action Mode Switcher */}
-        <div className="p-2 bg-slate-50/80 border-b border-slate-100 grid grid-cols-2 gap-1.5">
+        {/* Top 3 Action Mode Switcher */}
+        <div className="p-2 bg-slate-50/90 border-b border-slate-100 grid grid-cols-3 gap-1.5">
           <button
             id="tab-check-in"
             type="button"
-            className="py-2.5 px-3 rounded-xl bg-white text-indigo-700 font-bold text-xs shadow-xs border border-slate-200/80 flex items-center justify-center gap-1.5 cursor-default"
+            className="py-2 px-2 rounded-xl bg-white text-indigo-700 font-bold text-[11px] sm:text-xs shadow-xs border border-slate-200/80 flex items-center justify-center gap-1 cursor-default"
           >
             <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
             <span>Check In</span>
+          </button>
+          <button
+            id="tab-short-leave"
+            type="button"
+            onClick={onSwitchToShortLeave}
+            disabled={isSubmitting}
+            className="py-2 px-2 rounded-xl text-slate-600 hover:text-sky-800 hover:bg-white font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+          >
+            <Clock className="w-3 h-3 text-sky-600" />
+            <span className="truncate">Short Leave</span>
           </button>
           <button
             id="tab-record-absence"
             type="button"
             onClick={onSwitchToAbsence}
             disabled={isSubmitting}
-            className="py-2.5 px-3 rounded-xl text-slate-600 hover:text-amber-800 hover:bg-amber-50 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="py-2 px-2 rounded-xl text-slate-600 hover:text-amber-800 hover:bg-white font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
           >
-            <CalendarX2 className="w-3.5 h-3.5 text-amber-600" />
-            <span>Record Absence</span>
+            <CalendarX2 className="w-3 h-3 text-amber-600" />
+            <span className="truncate">Absence</span>
           </button>
         </div>
 
@@ -229,17 +241,28 @@ export const CheckInCard: React.FC<CheckInCardProps> = ({
               )}
             </button>
 
-            {/* Quick Link to Absentee Form */}
-            <div className="text-center pt-2 border-t border-slate-100">
+            {/* Quick Links */}
+            <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-100 text-xs">
+              <button
+                id="link-short-leave"
+                type="button"
+                onClick={onSwitchToShortLeave}
+                disabled={isSubmitting}
+                className="font-semibold text-slate-500 hover:text-sky-700 inline-flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-sky-50 transition-colors cursor-pointer"
+              >
+                <Clock className="w-3.5 h-3.5 text-sky-600" />
+                <span>Short Leave</span>
+              </button>
+              <span className="text-slate-300">•</span>
               <button
                 id="link-record-absence"
                 type="button"
                 onClick={onSwitchToAbsence}
                 disabled={isSubmitting}
-                className="text-xs font-semibold text-slate-500 hover:text-amber-700 inline-flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer"
+                className="font-semibold text-slate-500 hover:text-amber-700 inline-flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer"
               >
                 <CalendarX2 className="w-3.5 h-3.5 text-amber-600" />
-                <span>Need to report an absence? Record Absence</span>
+                <span>Record Absence</span>
               </button>
             </div>
           </div>
