@@ -9,7 +9,7 @@ const DUPLICATE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
  * Known working Google Apps Script Web App production endpoint.
  */
 export const DEFAULT_PRODUCTION_API_URL =
-  'https://script.google.com/macros/s/AKfycbz-7aJIMcBMgty5aRMnAdlhcgwHih31KZgTYVuyDgHQa9zffbsjeYYCjBVvH7246le2/exec';
+  'https://script.google.com/macros/s/AKfycbyfAbSLsXuhNbNMN-S5k8_nT4dT61xr8gYhiz2B1jq9GFkF6kF7NxDoT7Yd5qwLS8xXdg/exec';
 
 /**
  * Validates whether an attendance API URL matches the Google Apps Script Web App structure.
@@ -33,18 +33,23 @@ export function isValidGoogleAppsScriptUrl(url: string | null | undefined): bool
  * 3. Default known working production endpoint
  */
 export function getApiUrl(): string {
-  // Always enforce the current clean production deployment endpoint
-  // Clean up any stale localStorage overrides from prior sessions
+  // 1. Manually configured custom URL in localStorage
   try {
     const customUrl = localStorage.getItem(STORAGE_KEY_API_URL);
-    if (customUrl && customUrl !== DEFAULT_PRODUCTION_API_URL) {
-      localStorage.removeItem(STORAGE_KEY_API_URL);
+    if (customUrl && typeof customUrl === 'string') {
+      const trimmed = customUrl.trim();
+      if (isValidGoogleAppsScriptUrl(trimmed)) {
+        return trimmed;
+      } else {
+        // Obsolete, broken or non-conforming URL - remove so it doesn't cause silent failure
+        localStorage.removeItem(STORAGE_KEY_API_URL);
+      }
     }
   } catch (e) {
-    // Ignore localStorage access issues
+    // Ignore localStorage access issues (e.g. private mode restrictions)
   }
 
-  // 1. VITE_ATTENDANCE_API_URL environment variable
+  // 2. VITE_ATTENDANCE_API_URL environment variable
   const envUrl = (import.meta as any).env?.VITE_ATTENDANCE_API_URL;
   if (envUrl && typeof envUrl === 'string') {
     const trimmedEnv = envUrl.trim();
@@ -53,7 +58,7 @@ export function getApiUrl(): string {
     }
   }
 
-  // 2. Known working default production endpoint
+  // 3. Known working default production endpoint
   return DEFAULT_PRODUCTION_API_URL;
 }
 
