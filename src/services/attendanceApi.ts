@@ -33,23 +33,18 @@ export function isValidGoogleAppsScriptUrl(url: string | null | undefined): bool
  * 3. Default known working production endpoint
  */
 export function getApiUrl(): string {
-  // 1. Manually configured custom URL in localStorage
+  // Always enforce the current clean production deployment endpoint
+  // Clean up any stale localStorage overrides from prior sessions
   try {
     const customUrl = localStorage.getItem(STORAGE_KEY_API_URL);
-    if (customUrl && typeof customUrl === 'string') {
-      const trimmed = customUrl.trim();
-      if (isValidGoogleAppsScriptUrl(trimmed)) {
-        return trimmed;
-      } else {
-        // Obsolete, broken or non-conforming URL - remove so it doesn't cause silent failure
-        localStorage.removeItem(STORAGE_KEY_API_URL);
-      }
+    if (customUrl && customUrl !== DEFAULT_PRODUCTION_API_URL) {
+      localStorage.removeItem(STORAGE_KEY_API_URL);
     }
   } catch (e) {
-    // Ignore localStorage access issues (e.g. private mode restrictions)
+    // Ignore localStorage access issues
   }
 
-  // 2. VITE_ATTENDANCE_API_URL environment variable
+  // 1. VITE_ATTENDANCE_API_URL environment variable
   const envUrl = (import.meta as any).env?.VITE_ATTENDANCE_API_URL;
   if (envUrl && typeof envUrl === 'string') {
     const trimmedEnv = envUrl.trim();
@@ -58,7 +53,7 @@ export function getApiUrl(): string {
     }
   }
 
-  // 3. Known working default production endpoint
+  // 2. Known working default production endpoint
   return DEFAULT_PRODUCTION_API_URL;
 }
 
